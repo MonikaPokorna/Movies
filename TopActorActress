@@ -1,0 +1,117 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import datetime
+from datetime import date
+from datetime import datetime
+
+#Nacteni dat metadata
+metadata = pd.read_csv('c:/Home/Monika/DA/Python/movies_metadata_2020-05-20.csv', sep='|', encoding='utf-8')
+
+metadata.columns
+
+#Nacteni dat, pokud je fce .copy() tak se data stabilizuji
+smallMetaData =metadata[['id','title_csfd','revenue_world','release_date']].copy()
+
+smallMetaData
+
+# prevod roku-mesice-dne na rok
+def     string_to_date(date_string):
+        date_string = str(date_string)
+        if date_string != 'nan':
+            date_object = datetime.strptime(date_string,'%Y-%m-%d')
+            return date_object.year
+
+smallMetaData['year']=smallMetaData['release_date'].apply(string_to_date)
+
+smallMetaData
+
+# Ocisteni dat o nulove hodnoty v revenue
+revenueMetaData=smallMetaData[smallMetaData['revenue_world'].notnull()]
+
+revenueMetaData
+
+# Ocisteni dat o ty, co nemaji zadne roky
+revenueMetaData=revenueMetaData[revenueMetaData['year'].notnull()]
+
+revenueMetaData
+
+#Nacteni dat pro Koeficient
+coef = pd.read_csv('c:/Home/Monika/DA/Python/avg_coef.csv', encoding='utf-8')
+
+coef
+
+revenueMetaData=pd.merge(revenueMetaData,coef[['year','avg_coef']], how='left', on='year')
+
+revenueMetaData
+
+#Vypocet upraveneho revenue o koeficient
+revenueMetaData['new_revenue_world'] = revenueMetaData['revenue_world'].mul(revenueMetaData['avg_coef'])
+
+revenueMetaData
+
+#Nacteni dat na Cast
+moviePerson = pd.read_csv('c:/Home/Monika/DA/Python/cast_2020_05_25.csv', encoding='utf-8')
+
+moviePerson
+
+revenueMetaDataPerson=pd.merge(revenueMetaData,moviePerson, how='left', on='id')
+
+revenueMetaDataPerson
+
+revenueMetaDataPerson=revenueMetaDataPerson[revenueMetaDataPerson['order']<5]
+
+revenueMetaData
+
+#Nacteni dat pro Actor
+actor = pd.read_csv('c:/Home/Monika/DA/Python/person_2020_05_25.csv', encoding='utf-8')
+
+actor
+
+revenueMetaDataPersonActor=pd.merge(revenueMetaDataPerson,actor[['name','person_id']], how='left', on='person_id')
+
+revenueMetaDataPersonActor
+
+topActorRev=revenueMetaDataPersonActor.groupby('person_id')
+
+
+revActor=topActorRev[['new_revenue_world']].sum()
+
+revActor=revActor.rename(columns={'new_revenue_world':'newSumRevWorld'})
+
+revActor
+
+numActor=topActorRev[['name']].count()
+
+numActor=numActor.rename(columns={'name':'movieCount'})
+
+numActor
+
+groupActorRevenue=pd.merge(revActor,numActor, how ='left', on='person_id')
+
+groupActorRevenue
+
+groupActorRevenue=pd.merge(groupActorRevenue,actor[['person_id','name','gender']], how ='left', on='person_id')
+
+groupActorRevenue
+
+groupActorRevenue=groupActorRevenue.sort_values('newSumRevWorld',ascending=False)
+
+groupActorRevenue
+
+#Vyber pouze herecek
+groupActorRevenueF=groupActorRevenue[groupActorRevenue['gender']==1]
+
+groupActorRevenueF
+
+#Top 20 herecek podle sum Reveneue World
+groupActorRevenueF.nlargest(20,'newSumRevWorld')
+
+groupActorRevenueF.nlargest(20,'newSumRevWorld').to_csv('top20_actorsF_rev_2020_06_12.csv', sep=',', encoding='utf-8', index=False)
+
+#Vyber pouze hercu
+groupActorRevenueM=groupActorRevenue[groupActorRevenue['gender']==2]
+
+#Top 20 hercu podle sum Reveneue World
+groupActorRevenueM.nlargest(20,'newSumRevWorld')
+
+groupActorRevenueM.nlargest(20,'newSumRevWorld').to_csv('top20_actorsM_rev_2020_06_12.csv', sep=',', encoding='utf-8', index=False)
