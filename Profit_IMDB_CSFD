@@ -1,0 +1,77 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib import cm
+from pandas.plotting import scatter_matrix 
+
+
+#Nacteni MetaData
+metadata = pd.read_csv('c:/Home/Monika/DA/Python/movies_metadata_2020-05-20.csv', sep='|', encoding='utf-8')
+
+metadata.columns
+
+#Nacteni dat, pokud je fce .copy() tak se data stabilizuji
+smallMetaData =metadata[['id','title_csfd','rating_csfd','rating_imdb','budget_mojo','revenue_world']].copy()
+
+smallMetaData
+
+smallMetaData.to_csv('metadata.csv', sep=',', encoding='utf-8', index=False)
+
+#Vypocet profitu
+smallMetaData['profit']=smallMetaData['revenue_world']-smallMetaData['budget_mojo']
+smallMetaData['%profit']=round(((smallMetaData['profit']/smallMetaData['revenue_world'])*100),0)
+
+smallMetaData
+
+#Vybiram jen filmy, ktere maji budget i revenue, pro hodnoty profit, coz je zaklad moji analyzy
+profitMetaData=smallMetaData[smallMetaData['profit'].notnull()]
+
+profitMetaData=profitMetaData.sort_values('profit', ascending=False)
+
+profitMetaData
+
+profitMetaData.to_csv('profit.csv', sep=',', encoding='utf-8', index=False)
+
+#Negativni body se predefinuji a budou mit pak ve vykazu jinou barvu
+def negativ(value):
+    if value>=0:
+        return 1
+    else:
+        return 0
+    
+profitMetaData['gain_loss']=profitMetaData['profit'].apply(negativ)
+
+
+profitMetaData
+
+#Rating_IMDB
+profitMetaData[['rating_imdb','profit','gain_loss']].plot.scatter(x='rating_imdb', y='profit',c='gain_loss',cmap=cm.get_cmap('coolwarm_r',2))
+plt.show()
+
+#Rating_CSFD
+profitMetaData[['rating_csfd','profit','gain_loss']].plot.scatter(x='rating_csfd', y='profit',c='gain_loss',cmap=cm.get_cmap('coolwarm_r',2))
+plt.show()
+
+#Test 20 nejziskovějších na hodnocení
+test=profitMetaData.nlargest(20,'profit')[['rating_imdb','rating_csfd','profit']]
+
+test[['rating_imdb','rating_csfd']].plot.scatter(x='rating_csfd', y='rating_imdb',s=test['profit']/10000000)
+plt.show()
+
+
+smallProfit=profitMetaData[['id','%profit']]
+
+smallProfit
+
+smallProfitC=smallProfit.groupby('%profit')
+
+smallProfitC=smallProfitC[['id']].count()
+
+smallProfitC=smallProfitC.rename(columns={'id':'idMovieCount'})
+
+smallProfitC
+
+#Koeficient korelace vypocet pro jednotlive sloupce
+corr=profitMetaData[['rating_csfd','rating_imdb','revenue_world','profit']].corr()
+
+#Vysledek, neexistuje linearni korelace mezi hodnocenim filmu a profitem
+round(corr,3)
